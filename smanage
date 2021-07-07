@@ -1,0 +1,1011 @@
+#!/usr/local/bin/python3.9
+
+import tkinter as tk
+from tkinter import *
+from tkinter import messagebox
+import tkinter.font as tkFont
+import os
+import os.path
+from os import path
+from os.path import expanduser
+import sys
+import magic
+import subprocess
+from functools import partial
+import shutil
+import json
+import webbrowser
+from pathvalidate import is_valid_filename
+import pyperclip
+
+smanage_path = ""
+current_directory = ""
+config = ""
+
+hidden = True
+all_list = []
+dir_list = []
+file_list = []
+
+top = Tk()
+font = tkFont.Font(family="Monospace", size=13)
+list_box = ''
+path_entry = ''
+selection = ''
+work_button_text = ''
+
+
+
+#######################################
+#
+# alert
+#
+#######################################
+
+def alert(message):
+
+	messagebox.showinfo("Continue", message)
+	
+
+
+#######################################
+#
+# init
+#
+#######################################
+
+def init():
+  	
+	global top
+	global list_box
+	global path_entry
+	global font	
+	global config
+	global work_button_text
+		
+	work_button_text = tk.StringVar()
+	
+	# Set window title
+	top.title('smanage')
+  
+	# Set window size
+	top.geometry("750x500")
+	
+	
+	# path_label
+	path_label = LabelFrame(top, relief=SUNKEN, padx=5, pady=5)
+	path_label.pack(fill="both")
+	
+	# path_entry
+	path_entry = Entry(path_label, relief=SUNKEN, width=80, justify = "left", font=font)
+	path_entry.pack(fill=X, side=LEFT)
+	path_entry.insert(END, current_directory)
+	
+	# top_button_frame
+	top_button_frame = Frame(top)
+	top_button_frame.pack(fill=X, side=TOP)
+	
+	# all_button
+	all_button = Button(top_button_frame, text ="  ALL  ", font=font, command=select_all)
+	all_button.pack(side=LEFT, fill="x"), 
+	
+	# copy_button
+	copy_button = Button(top_button_frame, text ="  COPY  ", font=font, command=copy_callback)
+	copy_button.pack(side=LEFT, fill="x"), 
+	
+	# paste_button
+	paste_button = Button(top_button_frame, text ="  PASTE  ", font=font, command=paste_callback)
+	paste_button.pack(side=LEFT, fill="x")
+	
+	# new_button
+	new_button = Button(top_button_frame, text ="  NEW  ", font=font, command=new)
+	new_button.pack(side=LEFT, fill="x")
+	
+	# rename_button
+	rename_button = Button(top_button_frame, text ="  RENAME  ", font=font, command=rename)
+	rename_button.pack(side=LEFT, fill="x")
+	
+	# delete_button
+	delete_button = Button(top_button_frame, text =" DELETE ", font=font, command=delete_callback)
+	delete_button.pack(side=LEFT, fill="x")
+	
+	# setwork_button
+	setwork_button = Button(top_button_frame, text ="  SETWORK  ", font=font, command=setwork)
+	setwork_button.pack(side=LEFT, fill="x")
+	
+	# smanage_button
+	smanage_button = Button(top_button_frame, text =" SMANAGER ", font=font, command=open_smanage)
+	smanage_button.pack(side=LEFT, fill="x")
+	
+	# terminal_button
+	terminal_button = Button(top_button_frame, text =" TERMINAL ", font=font, command=open_terminal)
+	terminal_button.pack(side=LEFT, fill="x")
+	
+	# all_button
+	all_button = Button(top_button_frame, text ="  HIDDEN  ", font=font, command=hidden)
+	all_button.pack(side=LEFT, fill="x")
+	
+	# run_button
+	run_button = Button(top_button_frame, text ="  RUN  ", font=font, command=run)
+	run_button.pack(side=LEFT, fill="x")
+
+	# side_button_frame
+	side_button_frame = Frame(top)
+	side_button_frame.pack(fill=Y, side=LEFT)
+
+	# up_button
+	up_button = Button(side_button_frame, text ="..", font=font, justify=LEFT, command=up_directory)
+	up_button.pack(side=TOP, fill="x")
+
+	# root_button
+	root_button = Button(side_button_frame, text ="/", font=font, command=partial(button_directory, "/"))
+	root_button.pack(side=TOP, fill="x")
+
+	# home_button
+	home_button = Button(side_button_frame, text ="home", font=font, command=partial(button_directory, config["home"]))
+	home_button.pack(side=TOP, fill="x")
+	
+	# desktop_button
+	desktop_button = Button(side_button_frame, text ="Desktop", font=font, command=partial(button_directory, expanduser("~") + "/Desktop"))
+	desktop_button.pack(side=TOP, fill="x")
+	
+	# application_button
+	application_button = Button(side_button_frame, text ="Applications", font=font, command=partial(button_directory, "/Applications"))
+	application_button.pack(side=TOP, fill="x")
+	
+	# trash_button
+	trash_button = Button(side_button_frame, text = "Trash", font=font, command=partial(button_directory, config["trash"]))
+	trash_button.pack(side=TOP, fill="x")
+	
+	# volumes_button
+	volumes_button = Button(side_button_frame, text =" /Volumes ", font=font, command=partial(button_directory, "/Volumes"))
+	volumes_button.pack(side=TOP, fill="x")
+	
+	# work_button
+	work_button_text.set(config["work"])
+	work_button = Button(side_button_frame, textvariable = work_button_text, font=font, command=partial(button_directory, config["work"]))
+	work_button.pack(side=TOP, fill="x")
+	
+	# list_box
+	list_box = Listbox(top, relief=FLAT, selectbackground = "sky blue", selectmode=EXTENDED)
+	list_box.pack(side = LEFT, fill = BOTH, padx=20, pady=10)
+	
+	list_box.bind('<Command-c>', copy_callback)
+	list_box.bind('<Command-v>', paste_callback)
+	list_box.bind('<Command-x>', delete_callback)
+	list_box.bind('<Delete>', delete_callback)
+
+	# scroll_bar
+	scroll_bar = Scrollbar(top)
+	scroll_bar.pack(side = RIGHT, fill = BOTH)
+	
+	list_box.config(yscrollcommand = scroll_bar.set)
+	scroll_bar.config(command = list_box.yview)
+	
+	list_box.pack(expand=YES)
+	list_box.bind('<Double-Button>', open_command)
+	list_box.bind('<FocusOut>', lambda e: list_box.selection_clear(0, END))
+	
+	path_entry.bind("<Return>", entry_change_directory)
+
+
+
+#######################################
+#
+# up_directory
+#
+#######################################
+
+def up_directory():
+
+	global current_directory
+	global path_entry
+	
+	split_directory = current_directory.split("/")
+	split_directory.pop()
+	
+	current_directory = ''
+	for entry in split_directory:
+	
+		if entry == '':
+			continue
+			
+		current_directory = current_directory + "/" + entry
+	
+	if current_directory == '':
+		current_directory = "/"
+		
+	path_entry.delete(0, END)
+	path_entry.insert(0, current_directory)
+	
+	open_directory()
+
+
+
+
+#######################################
+#
+# button_directory
+#
+#######################################
+
+def button_directory(directory):
+
+	global current_directory
+	global path_entry
+	
+	current_directory = directory
+	
+	path_entry.delete(0, END)
+	path_entry.insert(0, current_directory)
+	
+	open_directory()
+	
+	
+	
+	
+#######################################
+#
+# select_all
+#
+#######################################
+
+def select_all():
+	global all_selected
+	
+	list_box.select_set(0, END)
+
+
+
+	
+#######################################
+#
+# copy_callback
+#
+#######################################
+
+def copy_callback(self=None):
+	global current_directory
+	global all_list
+	
+	copy_list = ''
+	
+	for i in list_box.curselection():
+	
+		selection = all_list[i]
+			
+		if selection[1] == "directory":
+		
+			buffer = current_directory + selection[0]	+ "\n"
+			copy_list = copy_list + buffer
+			
+		elif selection[1] == "file":
+		
+			buffer = current_directory + "/" + selection[0] + "\n"
+			copy_list = copy_list + buffer
+	
+	list_box.clipboard_clear()
+	pyperclip.copy(copy_list)
+	
+	list_box.selection_clear(0, END)
+	
+
+
+
+#######################################
+#
+# paste_callback
+#
+#######################################
+
+def paste_callback(self=None):
+	global current_directory
+	global all_list
+	
+	paste_buffer = pyperclip.paste()
+	
+	for source in paste_buffer.splitlines():
+		
+		source = source.rstrip()
+		source_list = source.split("/")
+		last = source_list[-1]
+	
+		destination = current_directory + "/" + last
+	
+		no = 1
+		copy = ".copy"
+		copy_destination = destination
+		while path.exists(copy_destination):
+			copy_destination = destination + copy
+			no = no + 1
+			copy = ".copy" + str(no)
+			
+		destination = copy_destination
+		
+		if path.isdir(source):
+			shutil.copytree(source, destination)
+		else:
+			shutil.copy(source, destination)
+		
+	open_directory()
+
+
+
+
+#######################################
+#
+# new
+#
+#######################################
+
+def new():
+
+	global create_new_window
+	global file_entry
+	global directory_entry
+		
+	create_new_window = Tk()
+	create_new_window.title('New')
+	
+	# file label
+	file_label = LabelFrame(create_new_window, text="New File", padx=5, pady=5)
+	file_label.pack(padx=10, pady=5, fill="both")
+
+	# file entry
+	font = tkFont.Font(family="Monospace", size=12)
+	file_entry = Entry(file_label, width=50, justify = "left", font=font)
+	file_entry.pack(fill="both")
+	file_entry.bind("<Return>", create_file)
+	
+	# create file button
+	file_button = Button(create_new_window, text="Create", command=partial(create_file, 1), padx=5, pady=5)
+	file_button.pack()
+	
+	# directory label
+	directory_label = LabelFrame(create_new_window, text="New Directory", padx=5, pady=5)
+	directory_label.pack(padx=10, pady=5, fill="both")
+
+	# directory entry
+	font = tkFont.Font(family="Monospace", size=12)
+	directory_entry = Entry(directory_label, width=50, justify = "left", font=font)
+	directory_entry.pack(fill="both")
+	directory_entry.bind("<Return>", create_directory)
+	
+	# create directory button
+	directory_button= Button(create_new_window, text="Create", command=partial(create_directory, 1), padx=5, pady=5)
+	directory_button.pack()
+	
+	# cancel button
+	cancel_button = Button(create_new_window, text="Cancel", command=create_new_cancel, padx=5, pady=5)
+	cancel_button.pack(side=RIGHT)
+	create_new_window.protocol("WM_DELETE_WINDOW", create_new_cancel)
+
+	
+
+#######################################
+#
+# create_file
+#
+#######################################
+
+def create_file(self, event=None):
+	global current_directory
+	global create_new_window
+	global file_entry
+	
+	new_file = file_entry.get()
+	
+	create_new_window.destroy()
+	
+	if new_file == "":
+		return
+		
+	if not is_valid_filename(new_file):
+		return
+	
+	new_path = current_directory + "/" + new_file
+	
+	if path.exists(new_path):
+		return
+	
+	file = open(new_path, 'w+')
+	file.close()
+	open_directory()
+		
+
+#######################################
+#
+# create_directory
+#
+#######################################
+
+def create_directory(self, event=None):
+	global current_directory
+	global create_new_window
+	global directory_entry
+	
+	new_directory = directory_entry.get()
+	
+	create_new_window.destroy()
+	
+	if new_directory == "":
+		return
+		
+	if not is_valid_filename(new_directory):
+		return
+	
+	new_path = current_directory + "/" + new_directory
+	
+	if path.exists(new_path):
+		return
+	
+	os.mkdir(new_path)
+	open_directory()
+		
+
+
+
+#######################################
+#
+# create_new_cancel
+#
+#######################################
+
+def create_new_cancel():
+	
+	global create_new_window
+	
+	create_new_window.destroy()	
+
+
+
+#######################################
+#
+# rename
+#
+#######################################
+
+def rename():
+
+	global rename_window
+	global rename_entry
+	global old_name
+	
+	selected_indices = list_box.curselection()
+	index = selected_indices[0]
+	old_name = all_list[index][0]
+	
+	rename_window = Tk()
+	rename_window.title('Rename')
+	
+	# rename label
+	rename_label = LabelFrame(rename_window, text="Rename", padx=5, pady=5)
+	rename_label.pack(padx=10, pady=5, fill="both")
+	
+	# rename entry
+	font = tkFont.Font(family="Monospace", size=12)
+	rename_entry = Entry(rename_label, width=50, justify = "left", font=font)
+	rename_entry.pack(fill="both")
+	
+	rename_entry.insert(END, old_name)
+	rename_entry.focus_set()
+	rename_entry.bind("<Return>", rename_execute)
+	
+	# rename button
+	rename_button = Button(rename_window, text="Rename", command=partial(rename_execute, 1), padx=5, pady=5)
+	rename_button.pack()
+	
+	# cancel button
+	cancel_button = Button(rename_window, text="Cancel", command=rename_cancel, padx=5, pady=5)
+	cancel_button.pack(side=RIGHT)
+	rename_window.protocol("WM_DELETE_WINDOW", rename_cancel)
+
+
+	
+#######################################
+#
+# rename_execute
+#
+#######################################
+
+def rename_execute(self, event=None):
+	
+	global current_directory
+	global rename_window
+	global rename_entry
+	global old_name
+	
+	new_name = rename_entry.get()
+	
+	rename_window.destroy()
+	
+	if new_name == "":
+		return
+		
+	if new_name == old_name:
+		return
+		
+	if not is_valid_filename(new_name):
+		return
+			
+	source = current_directory + "/" + old_name
+	
+	destination = current_directory + "/" + new_name
+	
+	if path.exists(destination):
+		return
+		
+	shutil.move(source, destination)
+	open_directory()
+
+
+
+
+#######################################
+#
+# rename_cancel
+#
+#######################################
+
+def rename_cancel():
+	
+	global rename_window
+	
+	rename_window.destroy()	
+
+	
+#######################################
+#
+# setwork
+#
+#######################################
+
+def setwork():
+	global current_directory
+	global config
+	global config_file
+	global work_button_text
+	
+	config["work"] = current_directory
+	open(config_file, "w+").write(json.dumps(config, indent=4))
+	work_button_text.set(config["work"])
+	
+	
+	
+#######################################
+#
+# delete_callback
+#
+#######################################
+
+def delete_callback(self=None):
+	global current_directory
+	global config
+	global selection
+	global all_list
+	
+	for i in list_box.curselection():
+	
+		selection = all_list[i]
+	
+		if selection[1] == "none":
+			continue
+		
+		source = current_directory + "/" + selection[0]
+		destination = config["trash"]  + "/" + selection[0]
+		
+		if current_directory == config["trash"]:
+		
+			if selection[1] == "directory":
+				shutil.rmtree(source)
+			else:
+				os.remove(source)
+				
+			continue
+		
+		no = 1
+		copy = ".copy"
+		copy_destination = destination
+		
+		while path.exists(copy_destination):
+			copy_destination = destination + copy
+			no = no + 1
+			copy = ".copy" + str(no)
+			
+		destination = copy_destination	
+	
+		shutil.move(source, destination)
+	
+	open_directory()
+		
+
+	
+#######################################
+#
+# open_smanage
+#
+#######################################
+
+def open_smanage():
+	global current_directory
+	global config
+
+	os.system("exec " + config["smanage"] + " "  + current_directory + "&")
+
+
+
+#######################################
+#
+# open_terminal
+#
+#######################################
+
+def open_terminal():
+	global current_directory
+	global config
+
+	subprocess.call( [ "open", "-n", "-a", config["terminal"],  current_directory ] )
+
+
+
+#######################################
+#
+# hidden
+#
+#######################################
+
+def hidden():
+	global hidden
+	
+	if hidden:
+		hidden = False
+	else:
+		hidden = True
+		
+	open_directory()
+
+
+
+#######################################
+#
+# run
+#
+#######################################
+
+def run():
+	global current_directory
+	global selection
+	global all_list
+	
+	
+	selected_indices = list_box.curselection()
+	if selected_indices == ():
+		return
+	
+	index = selected_indices[0]
+	
+	selection = all_list[index]
+	
+	extension = ( os.path.splitext(selection[0]) )[1]
+	
+	if extension == '.app':
+		subprocess.call( [ "open", "-n", "-a", current_directory + selection[0] ] )
+		return
+		
+	full_path = current_directory + '/' + selection[0]
+	magic_no = magic.from_file( full_path )
+	#print(magic_no)
+	
+	if "HTML document" in magic_no:
+		web_path = "file://" + full_path
+		webbrowser.open_new_tab(web_path)
+		return
+	
+	if extension == '.py':
+		command = "/usr/local/bin/python3.9 " + full_path
+		command = '\"' + command + '\"'
+		os.system("xterm -e " + command + "&")
+		return
+		
+	if "text executable" in magic_no:
+		subprocess.Popen( [full_path] )
+		return
+		
+	if "x86_64 executable" in magic_no:
+		subprocess.call( [full_path], cwd=current_directory )
+		
+
+	
+
+#######################################
+#
+# open_command
+#
+#######################################
+
+def open_command(event):
+
+	global current_directory
+	global path_entry
+	global selection
+	global all_list
+	global config
+	
+	selected_indices = list_box.curselection()
+	index = selected_indices[0]
+	
+	selection = all_list[index]
+	
+	if selection[1] == 'none':
+		return
+		
+	if selection[1] == 'directory':
+	
+		if current_directory == '/':
+			current_directory = ''
+			
+		current_directory = current_directory +  '/' + selection[0]
+		path_entry.delete(0, END)
+		path_entry.insert(0, current_directory)
+		open_directory()
+		return
+	
+	if selection[1] == 'file':
+
+		full_path = current_directory + '/' + selection[0]
+		magic_no = magic.from_file( full_path )
+		#print(magic_no)
+		
+		extension = ( os.path.splitext(selection[0]) )[1]
+	
+		if extension == '.pages':
+			subprocess.call( [ "open", "-n", "-a", "Pages", full_path] )
+			return
+				
+		if extension == '.md':
+			subprocess.call( [ "open", "-n", "-a", config["markdown"],  full_path ] )
+			return
+		
+		if "x86_64 executable" in magic_no:
+			subprocess.call( [full_path], cwd=current_directory )
+			return
+		
+		if "c source" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["c source"], full_path] )
+			return	
+
+		if "ASCII text" in magic_no or "Unicode text" in magic_no:
+		
+			if extension == '.py':
+				subprocess.call( [ "open", "-n", "-a", config["python"],  full_path ] )
+				return
+				
+			subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
+			return
+			
+		if "empty" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
+			return
+		
+		if "PDF document"  in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["pdf"], full_path] )
+			return
+			
+		if "image data"  in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["image"], full_path] )
+			return
+			
+		if "Audio file" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+			return
+		
+		if "FLAC audio" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+			return
+				
+		if "WAVE audio" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+			return
+			
+		if "Macromedia Flash Video" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+			return
+		
+		if "MP4" in magic_no or "MPEG" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+			return
+			
+		if "Apple QuickTime" in magic_no or "MPEG" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+			return
+				
+		if "Ogg data" in magic_no or "MPEG" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+			return	
+				
+		if "Microsoft ASF" in magic_no or "MPEG" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+			return
+			
+		if "Microsoft Word" in magic_no:
+			subprocess.call( [ "open", "-n", "-a", config["msoffice"], full_path] )
+			return	
+
+
+
+
+#######################################
+#
+# entry_change_directory
+#
+#######################################
+
+def entry_change_directory(event):
+
+	global current_directory
+	global path_entry
+
+	old_directory = current_directory
+	
+	current_directory = path_entry.get()
+	
+	try:
+		open_directory()
+	except:
+		current_directory = old_directory
+		path_entry.delete(0, END)
+		path_entry.insert(0, current_directory)
+		open_directory()
+
+
+
+#######################################
+#
+# open_directory
+#
+#######################################
+
+def open_directory():
+
+	global all_list
+	global current_directory
+	
+	os.chdir(current_directory)
+	
+	all_list = os.scandir(path = current_directory)
+	
+	file_list = []
+	dir_list = []
+
+	for entry in all_list:
+		file = entry.name
+	
+		if hidden and file[0] == '.':
+			continue
+		
+		if not entry.is_dir() and not entry.is_file():
+			continue
+		
+		if entry.is_dir():
+			dir_list.append(file)
+		
+		else:
+			file_list.append(file)
+			
+
+	dir_list = sorted(dir_list, key=str.lower)
+	file_list = sorted(file_list, key=str.lower)
+
+	all_list = []
+
+	for directory in dir_list:
+		all_list.append( [directory, "directory"] )
+	
+	all_list.append(["", "none"])
+	
+	for file in file_list:
+		all_list.append([file, "file"])
+
+	list_box.delete(0,END)
+	for i in range(len(all_list)):
+		list_box.insert(END, all_list[i][0])
+	
+
+
+#######################################
+#
+# set_config
+#
+#######################################
+
+def set_config():
+
+	global current_directory
+	global config_file
+	global smanage_path
+
+	home_directory = expanduser("~")
+	smanage_path = os.path.abspath(__file__)
+	
+	config = {
+		"smanage"  : smanage_path,
+		"trash"	   :	home_directory + "/.Trash",
+		"home"     :	home_directory,
+		"work"	    : home_directory,
+		"terminal"	:	"Terminal",
+		"text"     : "TextEdit",
+		"msoffice" : "LibreOffice",
+		"pdf"      :	"Preview",
+		"image"    :	"Preview",
+		"video"    :	"QuickTime Player",
+		"music"    : "Music",
+		"html"     :	"TextEdit",
+    		"markdown" : "TextEdit",
+		"c source" : "TextEdit",
+		"python"   : "TextEdit"
+	}
+	
+	open(config_file, "w+").write(json.dumps(config, indent=4))
+
+
+
+#######################################
+#
+# get_config
+#
+#######################################
+
+def get_config():
+
+	global current_directory
+	global config
+	global config_file
+	
+	home_directory = expanduser("~")
+	
+	if not path.exists(home_directory + "/.config"):
+		os.mkdir(home_directory + "/.config")
+		
+	config_directory = home_directory + "/.config/smanage"
+	
+	if not path.exists(config_directory):
+		os.mkdir(config_directory)
+	
+	config_file = config_directory + "/config_file"
+		
+	if not path.exists(config_file):	
+		set_config()
+	
+	config = json.loads(open(config_file, 'r').read())
+	
+	if not path.exists(config["trash"]):
+		os.mkdir(config["trash"])
+		
+		
+	
+	
+#######################################
+#
+# main
+#
+#######################################
+
+if __name__ == "__main__":
+
+	if len(sys.argv) > 1:
+	
+		current_directory = sys.argv[1]
+						
+	else:
+		current_directory = os.getcwd()
+			
+	get_config()
+	init()
+	
+	path_entry.delete(0, END)
+	path_entry.insert(0, current_directory)
+			
+	open_directory()
+
+	top.mainloop()
+	

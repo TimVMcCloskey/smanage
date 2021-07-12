@@ -36,6 +36,13 @@ directory, and paste or type in a new path to change the directory.
 The top row of buttons are self explanatory with the exception of SETWORK. You 
 can also use the standard OS X key shortcuts for select all, copy, and paste.
 
+The FIND button will give an option to either use "Find Path" or "Find in File". 
+Input the name of a folder, file or string to recursively find all matches 
+starting at the current directory. The search results are shown in a new window. 
+Double clicking on the match will open the directory of the match is found in. 
+In the case of matching strings in files double clicking will also open the text 
+file with its associated editor. 
+
 The buttons on the left side all open commonly used directories. The bottom 
 button opens a work directory,  You can navigate to any directory, press the 
 SETWORK button, and it will set this button to that directory.

@@ -17,6 +17,8 @@ import json
 import webbrowser
 from pathvalidate import is_valid_filename
 import pyperclip
+import glob
+from pathlib import Path
 
 smanage_path = ""
 current_directory = ""
@@ -34,6 +36,15 @@ path_entry = ''
 selection = ''
 work_button_text = ''
 
+find_window = ''
+file_entry = ''
+in_file_entry = ''
+path_list_box = ''
+
+find_top = Toplevel(top)
+find_top.destroy()
+find_all_list = []
+is_text_search = False
 
 
 #######################################
@@ -86,23 +97,23 @@ def init():
 	top_button_frame.pack(fill=X, side=TOP)
 	
 	# all_button
-	all_button = Button(top_button_frame, text ="  ALL  ", font=font, command=select_all)
+	all_button = Button(top_button_frame, text =" ALL ", font=font, command=select_all)
 	all_button.pack(side=LEFT, fill="x"), 
 	
 	# copy_button
-	copy_button = Button(top_button_frame, text ="  COPY  ", font=font, command=copy_callback)
+	copy_button = Button(top_button_frame, text =" COPY ", font=font, command=copy_callback)
 	copy_button.pack(side=LEFT, fill="x"), 
 	
 	# paste_button
-	paste_button = Button(top_button_frame, text ="  PASTE  ", font=font, command=paste_callback)
+	paste_button = Button(top_button_frame, text =" PASTE ", font=font, command=paste_callback)
 	paste_button.pack(side=LEFT, fill="x")
 	
 	# new_button
-	new_button = Button(top_button_frame, text ="  NEW  ", font=font, command=new)
+	new_button = Button(top_button_frame, text =" NEW ", font=font, command=new)
 	new_button.pack(side=LEFT, fill="x")
 	
 	# rename_button
-	rename_button = Button(top_button_frame, text ="  RENAME  ", font=font, command=rename)
+	rename_button = Button(top_button_frame, text =" RENAME ", font=font, command=rename)
 	rename_button.pack(side=LEFT, fill="x")
 	
 	# delete_button
@@ -110,11 +121,11 @@ def init():
 	delete_button.pack(side=LEFT, fill="x")
 	
 	# setwork_button
-	setwork_button = Button(top_button_frame, text ="  SETWORK  ", font=font, command=setwork)
+	setwork_button = Button(top_button_frame, text =" SETWORK ", font=font, command=setwork)
 	setwork_button.pack(side=LEFT, fill="x")
 	
 	# smanage_button
-	smanage_button = Button(top_button_frame, text =" SMANAGER ", font=font, command=open_smanage)
+	smanage_button = Button(top_button_frame, text =" SMANAGE ", font=font, command=open_smanage)
 	smanage_button.pack(side=LEFT, fill="x")
 	
 	# terminal_button
@@ -122,12 +133,16 @@ def init():
 	terminal_button.pack(side=LEFT, fill="x")
 	
 	# all_button
-	all_button = Button(top_button_frame, text ="  HIDDEN  ", font=font, command=hidden)
+	all_button = Button(top_button_frame, text =" HIDDEN ", font=font, command=hidden)
 	all_button.pack(side=LEFT, fill="x")
 	
 	# run_button
-	run_button = Button(top_button_frame, text ="  RUN  ", font=font, command=run)
+	run_button = Button(top_button_frame, text =" RUN ", font=font, command=run)
 	run_button.pack(side=LEFT, fill="x")
+	
+	# find_button
+	find_button = Button(top_button_frame, text =" FIND ", font=font, command=find)
+	find_button.pack(side=LEFT, fill="x")
 
 	# side_button_frame
 	side_button_frame = Frame(top)
@@ -192,7 +207,7 @@ def init():
 
 #######################################
 #
-# up_directory
+# up_directory	
 #
 #######################################
 
@@ -273,16 +288,8 @@ def copy_callback(self=None):
 	for i in list_box.curselection():
 	
 		selection = all_list[i]
-			
-		if selection[1] == "directory":
-		
-			buffer = current_directory + selection[0]	+ "\n"
-			copy_list = copy_list + buffer
-			
-		elif selection[1] == "file":
-		
-			buffer = current_directory + "/" + selection[0] + "\n"
-			copy_list = copy_list + buffer
+		buffer = current_directory + "/" + selection[0] + "\n"
+		copy_list = copy_list + buffer
 	
 	list_box.clipboard_clear()
 	pyperclip.copy(copy_list)
@@ -315,6 +322,7 @@ def paste_callback(self=None):
 		no = 1
 		copy = ".copy"
 		copy_destination = destination
+		
 		while path.exists(copy_destination):
 			copy_destination = destination + copy
 			no = no + 1
@@ -331,6 +339,322 @@ def paste_callback(self=None):
 
 
 
+#######################################
+#
+# find
+#
+#######################################
+
+def find():
+
+	global find_window
+	global find_path_entry
+	global find_in_file_entry
+	global find_top
+	
+	if find_top.winfo_exists():
+		return
+	
+	find_window = Tk()
+	find_window.title('Find')
+	
+	# find path label
+	find_path_label = LabelFrame(find_window, text="Find Path", padx=5, pady=5)
+	find_path_label.pack(padx=10, pady=5, fill="both")
+
+	# path entry
+	font = tkFont.Font(family="Monospace", size=12)
+	find_path_entry = Entry(find_path_label, width=50, justify = "left", font=font)
+	find_path_entry.pack(fill="both")
+	find_path_entry.bind("<Return>", find_path)
+	find_path_entry.focus_set()
+	
+	# find path button
+	find_path_button = Button(find_window, text="Find Path", command=partial(find_path, 1), padx=5, pady=5)
+	find_path_button.pack()
+	
+	# find in_file label
+	find_in_file_label = LabelFrame(find_window, text="Find In File", padx=5, pady=5)
+	find_in_file_label.pack(padx=10, pady=5, fill="both")
+
+	# find_in_file entry
+	font = tkFont.Font(family="Monospace", size=12)
+	find_in_file_entry = Entry(find_in_file_label, width=50, justify = "left", font=font)
+	find_in_file_entry.pack(fill="both")
+	find_in_file_entry.bind("<Return>", find_in_file)
+	
+	# find_in_file button
+	find_in_file_button = Button(find_window, text="Find In File", command=partial(find_in_file, 1), padx=5, pady=5)
+	find_in_file_button.pack()
+	
+	# cancel button
+	cancel_button = Button(find_window, text="Cancel", command=find_cancel, padx=5, pady=5)
+	cancel_button.pack(side=RIGHT)
+	find_window.protocol("WM_DELETE_WINDOW", find_cancel)
+
+
+
+#######################################
+#
+# find_path
+#
+#######################################
+
+def find_path(self, event=None):
+
+	global current_directory
+	global find_window
+	global find_path_entry
+	global find_top
+	global find_all_list
+	global path_list_box
+	global is_text_search
+	
+	is_text_search = False
+	
+	find_path = find_path_entry.get()
+	
+	find_window.destroy()
+	
+	if find_path == "":
+		return
+	
+	find_top = Toplevel(top)
+	
+	# Set window title
+	find_top.title('Find Path')
+  
+	# Set window size
+	find_top.geometry("750x500")
+	
+	# path_list_box
+	path_list_box = Listbox(find_top, relief=FLAT, selectbackground = "sky blue", selectmode=EXTENDED)
+	path_list_box.pack(side = LEFT, fill = BOTH, padx=20, pady=10)
+
+	# scroll_bar
+	path_scroll_bar = Scrollbar(find_top)
+	path_scroll_bar.pack(side = RIGHT, fill = BOTH)
+	
+	path_list_box.config(yscrollcommand = path_scroll_bar.set)
+	path_scroll_bar.config(command = path_list_box.yview)
+	
+	path_list_box.pack(expand=YES)
+	path_list_box.bind('<Double-Button>', open_find_command)
+	path_list_box.bind('<FocusOut>', lambda e: path_list_box.selection_clear(0, END))
+	
+	# done button
+	done_button = Button(find_top, text="Done", command=find_file_done, padx=5, pady=5)
+	done_button.pack(side=BOTTOM)
+	
+	find_top.protocol("WM_DELETE_WIND", find_file_done)
+	
+	file_list = []
+	dir_list = []
+	
+	
+	for entry in Path(current_directory).rglob(find_path):
+		
+		if entry.is_dir():
+			dir_list.append(str(entry))
+		
+		else:
+			file_list.append(str(entry))
+
+	dir_list = sorted(dir_list, key=str.lower)
+	file_list = sorted(file_list, key=str.lower)
+
+	find_all_list = []
+
+	for directory in dir_list:
+		find_all_list.append( [directory, "directory"] )
+	
+	find_all_list.append(["", "none"])
+	
+	for file in file_list:
+		find_all_list.append([file, "file"])
+
+	path_list_box.delete(0,END)
+	
+	for i in range(len(find_all_list)):
+		path_list_box.insert(END, find_all_list[i][0])
+		
+
+
+#######################################
+#
+# open_find_command
+#
+#######################################
+
+def open_find_command(event):
+
+	global current_directory
+	global path_entry
+	global find_all_list
+	global is_text_search
+	
+	selected_indices = path_list_box.curselection()
+	index = selected_indices[0]
+	
+	selection = find_all_list[index]
+	
+	if selection[1] == 'none':
+		return
+		
+	if selection[1] == 'directory':
+			
+		current_directory = selection[0]
+		path_entry.delete(0, END)
+		path_entry.insert(0, current_directory)
+		open_directory()
+		return
+	
+	if selection[1] == 'file':
+		
+		current_directory = os.path.dirname(selection[0])
+		path_entry.delete(0, END)
+		path_entry.insert(0, current_directory)
+		open_directory()
+		
+		if is_text_search:
+			full_path = selection[0]	
+			open_file(full_path, os.path.basename(selection[0]))
+
+
+
+#######################################
+#
+# find_file_done
+#
+#######################################
+
+def find_file_done():
+	global find_top
+	
+	find_top.destroy()	
+	
+	
+#######################################
+#
+# find_in_file
+#
+#######################################
+
+def find_in_file(self, event=None):
+	
+	global current_directory
+	global find_window
+	global find_in_file_entry
+	global find_top
+	global find_all_list
+	global path_list_box
+	global is_text_search
+	
+	is_text_search = True
+	
+	find_text = find_in_file_entry.get()
+	
+	find_window.destroy()
+	
+	if find_path == "":
+		return
+	
+	find_top = Toplevel(top)
+	
+	# Set window title
+	find_top.title('Find In File')	
+	
+	# Set window size
+	find_top.geometry("750x500")
+	
+	# path_list_box
+	path_list_box = Listbox(find_top, relief=FLAT, selectbackground = "sky blue", selectmode=EXTENDED)
+	path_list_box.pack(side = LEFT, fill = BOTH, padx=20, pady=10)
+
+	# scroll_bar
+	path_scroll_bar = Scrollbar(find_top)
+	path_scroll_bar.pack(side = RIGHT, fill = BOTH)
+	
+	path_list_box.config(yscrollcommand = path_scroll_bar.set)
+	path_scroll_bar.config(command = path_list_box.yview)
+	
+	path_list_box.pack(expand=YES)
+	path_list_box.bind('<Double-Button>', open_find_command)
+	path_list_box.bind('<FocusOut>', lambda e: path_list_box.selection_clear(0, END))
+	
+	# done button
+	done_button = Button(find_top, text="Done", command=find_file_done, padx=5, pady=5)
+	done_button.pack(side=BOTTOM)
+	
+	find_top.protocol("WM_DELETE_WIND", find_file_done)
+	
+	
+	find_all_list = []
+	
+	find_text_in_file(current_directory, find_text)
+	
+	path_list_box.delete(0,END)
+
+	for i in range(len(find_all_list)):
+		path_list_box.insert(END, find_all_list[i][0])
+		
+	
+	
+	
+#######################################
+#
+# find_text_in_file
+#
+#######################################
+	
+def find_text_in_file(directory, phrase):
+
+	global find_all_list
+
+	for file in os.listdir(directory):
+	
+		path = directory + "/" + file
+		
+		if os.path.isdir(path):
+
+			find_text_in_file(path, phrase)
+	
+		else:
+	
+			magic_no = magic.from_file(path)
+		
+			if "ASCII text" in magic_no or "Unicode text" in magic_no:
+		
+				if phrase in open(path).read():
+					find_all_list.append([path, "file"])
+					
+
+
+
+#######################################
+#
+# open_find_in_file_command
+#
+######################################
+	
+def open_find_in_file_command(event):
+
+	return
+
+
+#######################################
+#
+# find_cancel
+#
+#######################################
+
+def find_cancel():
+	
+	global find_window
+	
+	find_window.destroy()	
+	
+						
 
 #######################################
 #
@@ -727,9 +1051,7 @@ def open_command(event):
 
 	global current_directory
 	global path_entry
-	global selection
 	global all_list
-	global config
 	
 	selected_indices = list_box.curselection()
 	index = selected_indices[0]
@@ -753,85 +1075,96 @@ def open_command(event):
 	if selection[1] == 'file':
 
 		full_path = current_directory + '/' + selection[0]
-		magic_no = magic.from_file( full_path )
-		#print(magic_no)
-		
-		extension = ( os.path.splitext(selection[0]) )[1]
+		open_file(full_path, selection[0])
+
+
+#######################################
+#
+# open_file
+#
+#######################################
+
+def open_file(full_path, file):
 	
-		if extension == '.pages':
-			subprocess.call( [ "open", "-n", "-a", "Pages", full_path] )
-			return
+	global config
+			
+	magic_no = magic.from_file( full_path )
+	#print(magic_no)
+		
+	extension = ( os.path.splitext(file) )[1]
+	
+	if extension == '.pages':
+		subprocess.call( [ "open", "-n", "-a", "Pages", full_path] )
+		return
 				
-		if extension == '.md':
-			subprocess.call( [ "open", "-n", "-a", config["markdown"],  full_path ] )
-			return
+	if extension == '.md':
+		subprocess.call( [ "open", "-n", "-a", config["markdown"],  full_path ] )
+		return
 		
-		if "x86_64 executable" in magic_no:
-			subprocess.call( [full_path], cwd=current_directory )
-			return
+	if "x86_64 executable" in magic_no:
+		subprocess.call( [full_path], cwd=current_directory )
+		return
 		
-		if "c source" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["c source"], full_path] )
-			return	
+	if "c source" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["c source"], full_path] )
+		return	
 
-		if "ASCII text" in magic_no or "Unicode text" in magic_no:
+	if "ASCII text" in magic_no or "Unicode text" in magic_no:
 		
-			if extension == '.py':
-				subprocess.call( [ "open", "-n", "-a", config["python"],  full_path ] )
-				return
-				
-			subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
-			return
-			
-		if "empty" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
-			return
-		
-		if "PDF document"  in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["pdf"], full_path] )
-			return
-			
-		if "image data"  in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["image"], full_path] )
-			return
-			
-		if "Audio file" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
-			return
-		
-		if "FLAC audio" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+		if extension == '.py':
+			subprocess.call( [ "open", "-n", "-a", config["python"],  full_path ] )
 			return
 				
-		if "WAVE audio" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
-			return
+		subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
+		return
 			
-		if "Macromedia Flash Video" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
-			return
+	if "empty" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["text"],  full_path ] )
+		return
 		
-		if "MP4" in magic_no or "MPEG" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
-			return
+	if "PDF document"  in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["pdf"], full_path] )
+		return
 			
-		if "Apple QuickTime" in magic_no or "MPEG" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
-			return
-				
-		if "Ogg data" in magic_no or "MPEG" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
-			return	
-				
-		if "Microsoft ASF" in magic_no or "MPEG" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
-			return
+	if "image data"  in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["image"], full_path] )
+		return
 			
-		if "Microsoft Word" in magic_no:
-			subprocess.call( [ "open", "-n", "-a", config["msoffice"], full_path] )
-			return	
-
-
+	if "Audio file" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+		return
+		
+	if "FLAC audio" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+		return
+				
+	if "WAVE audio" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["music"], full_path] )
+		return
+			
+	if "Macromedia Flash Video" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+		return
+		
+	if "MP4" in magic_no or "MPEG" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+		return
+			
+	if "Apple QuickTime" in magic_no or "MPEG" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+		return
+				
+	if "Ogg data" in magic_no or "MPEG" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+		return	
+				
+	if "Microsoft ASF" in magic_no or "MPEG" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["video"], full_path] )
+		return
+			
+	if "Microsoft Word" in magic_no:
+		subprocess.call( [ "open", "-n", "-a", config["msoffice"], full_path] )
+		return	
 
 
 #######################################
@@ -931,7 +1264,7 @@ def set_config():
 		"smanage"  : smanage_path,
 		"trash"	   :	home_directory + "/.Trash",
 		"home"     :	home_directory,
-		"work"	    : home_directory,
+		"work"		: home_directory,
 		"terminal"	:	"Terminal",
 		"text"     : "TextEdit",
 		"msoffice" : "LibreOffice",
@@ -1009,3 +1342,4 @@ if __name__ == "__main__":
 
 	top.mainloop()
 	
+
